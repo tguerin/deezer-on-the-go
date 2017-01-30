@@ -10,6 +10,21 @@ const index = require('./routes/index');
 
 const app = express();
 
+const os = require('os');
+
+const interfaces = os.networkInterfaces();
+const addresses = [];
+for (let k in interfaces) {
+  for (let k2 in interfaces[k]) {
+    let address = interfaces[k][k2];
+    if (address.family === 'IPv4' && !address.internal) {
+      addresses.push(address.address);
+    }
+  }
+}
+
+console.log(addresses);
+
 const connect = new DeezerNative.Connect(
   '161135',
   'plop',
@@ -55,5 +70,40 @@ connect
 
 const player = new DeezerNative.Player(process.env.DEEZER_ACCESS_TOKEN);
 player.loadUrl('dzmedia:///track/10287076').play();
+
+
+const dgram = require('dgram');
+const server = dgram.createSocket('udp4');
+
+server.on('error', (err) => {
+  console.log(`server error:\n${err.stack}`);
+  server.close();
+});
+
+server.on('message', (msg, rinfo) => {
+  console.log(`server got: ${msg} from ${rinfo.address}:${rinfo.port}`);
+  try {
+    const json = JSON.parse(msg);
+    if(json.request === "on_the_go_discovery"){
+      const on_the_go = JSON.stringify({
+        request:"on_the_go_discovered",
+        name:"My On The Go",
+        adress:addresses[0]
+      });
+      server.send(on_the_go, rinfo.port, rinfo.address, (err) => {
+        console.log(err)
+      });
+    }
+  } catch (e){
+    console.log(e);
+  }
+});
+
+server.on('listening', () => {
+  var address = server.address();
+  console.log(`server listening ${address.address}:${address.port}`);
+});
+
+server.bind(11111);
 
 module.exports = app;
